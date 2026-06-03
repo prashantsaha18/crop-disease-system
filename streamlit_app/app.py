@@ -274,7 +274,15 @@ def _get_nested_layer(model, name: str):
 @st.cache_data(show_spinner=False, max_entries=8)
 def run_gradcam(_model_ref, img_array: np.ndarray, class_idx: int) -> np.ndarray:
     """
-    Compute Grad-CAM heatmap.
+    Compute Grad-CAM heatmap using monkey-patched layer capture.
+    Compatible with Keras 3.x / TF 2.21+ where nested sub-model outputs
+    cannot be rewired into a new Functional model.
+
+    Strategy: temporarily replace the target conv layer's ``call()`` so it
+    stores its output tensor.  A ``tf.GradientTape(persistent=True)`` watches
+    the captured tensor *inside* the patched ``call``, ensuring the tape
+    records the full computation graph from conv output → final prediction.
+
     img_array : (1, 224, 224, 3) preprocessed float32
     Returns   : (224, 224) float32 heatmap in [0, 1]
     """
@@ -287,74 +295,48 @@ def run_gradcam(_model_ref, img_array: np.ndarray, class_idx: int) -> np.ndarray
 
     target_layer = _get_nested_layer(_model_ref, target_name)
 
-    is_nested = False
-    sub_model = None
-    sub_model_idx = -1
+    img_tensor = tf.cast(img_array, tf.float32)
+
+    # Storage for the intermediate conv activation captured during forward pass
+    conv_output_store: dict[str, tf.Tensor] = {}
+    original_call = target_layer.call
+
+    # The tape is created *before* the forward pass and shared with the
+    # patched call via closure so ``tape.watch`` is called on the conv
+    # output tensor at the moment it's produced — this ensures the gradient
+    # path from conv_out → preds → class_score is fully tracked.
+    tape = tf.GradientTape()
+
+    def _capturing_call(*args, **kwargs):
+        result = original_call(*args, **kwargs)
+        tape.watch(result)           # watch *inside* the forward pass
+        conv_output_store["out"] = result
+        return result
 
     try:
-        grad_model = keras.Model(
-            inputs=_model_ref.inputs,
-            outputs=[target_layer.output, _model_ref.outputs[0]],
-        )
-    except (ValueError, AttributeError):
-        is_nested = True
-        for i, layer in enumerate(_model_ref.layers):
-            if isinstance(layer, keras.Model):
-                try:
-                    _ = layer.get_layer(target_layer.name)
-                    sub_model = layer
-                    sub_model_idx = i
-                    break
-                except ValueError:
-                    pass
+        target_layer.call = _capturing_call
 
-        if sub_model is None:
-            return np.zeros(IMG_SIZE, dtype=np.float32)
+        with tape:
+            preds = _model_ref(img_tensor, training=False)
+            conv_out = conv_output_store.get("out")
+            if conv_out is None:
+                return np.zeros(IMG_SIZE, dtype=np.float32)
+            class_score = preds[:, class_idx]
 
-        grad_model = keras.Model(
-            inputs=sub_model.inputs,
-            outputs=[target_layer.output, sub_model.outputs[0]],
-        )
+        grads = tape.gradient(class_score, conv_out)  # (1, h, w, C)
+    except Exception:
+        # Graceful degradation — return blank heatmap rather than crashing
+        return np.zeros(IMG_SIZE, dtype=np.float32)
+    finally:
+        target_layer.call = original_call
 
-    def forward_preprocess(inputs):
-        x = inputs
-        for layer in _model_ref.layers[:sub_model_idx]:
-            if isinstance(layer, keras.layers.InputLayer):
-                continue
-            try:
-                x = layer(x, training=False)
-            except TypeError:
-                x = layer(x)
-        return x
-
-    def forward_head(sub_output):
-        x = sub_output
-        for layer in _model_ref.layers[sub_model_idx + 1:]:
-            try:
-                x = layer(x, training=False)
-            except TypeError:
-                x = layer(x)
-        return x
-
-    img_tensor = tf.cast(img_array, tf.float32)
-    with tf.GradientTape() as tape:
-        tape.watch(img_tensor)
-        if not is_nested:
-            conv_out, preds = grad_model(img_tensor, training=False)
-        else:
-            sub_inputs = forward_preprocess(img_tensor)
-            conv_out, sub_out = grad_model(sub_inputs, training=False)
-            preds = forward_head(sub_out)
-        class_score = preds[:, class_idx]
-
-    grads       = tape.gradient(class_score, conv_out)          # (1, h, w, C)
     if grads is None:
         return np.zeros(IMG_SIZE, dtype=np.float32)
 
-    pooled      = tf.reduce_mean(grads, axis=(0, 1, 2))         # (C,)
-    heatmap     = tf.squeeze(conv_out[0] @ pooled[..., tf.newaxis])  # (h, w)
-    heatmap     = tf.maximum(heatmap, 0)
-    heatmap     = heatmap / (tf.reduce_max(heatmap) + 1e-8)
+    pooled  = tf.reduce_mean(grads, axis=(0, 1, 2))                  # (C,)
+    heatmap = tf.squeeze(conv_out[0] @ pooled[..., tf.newaxis])       # (h, w)
+    heatmap = tf.maximum(heatmap, 0)
+    heatmap = heatmap / (tf.reduce_max(heatmap) + 1e-8)
     return heatmap.numpy().astype(np.float32)
 
 def overlay_heatmap(original_rgb: np.ndarray, heatmap: np.ndarray, alpha: float = 0.45) -> np.ndarray:
@@ -753,7 +735,7 @@ def render_detect_tab(model):
         )
     with col_sample:
         st.markdown("**Or try a sample:**")
-        sample_choice = st.selectbox("", ["— none —"] + list(SAMPLE_IMAGES.keys()),
+        sample_choice = st.selectbox("Sample image", ["— none —"] + list(SAMPLE_IMAGES.keys()),
                                      label_visibility="collapsed")
 
     pil_img: Optional[Image.Image] = None
@@ -790,9 +772,9 @@ def render_detect_tab(model):
         st.markdown("#### 📷 Input Image")
         tab_orig, tab_gcam = st.tabs(["Original", "GradCAM Overlay"])
         with tab_orig:
-            st.image(pil_img, use_container_width=True, caption="Uploaded leaf")
+            st.image(pil_img, width="stretch", caption="Uploaded leaf")
         with tab_gcam:
-            st.image(result["overlay"], use_container_width=True,
+            st.image(result["overlay"], width="stretch",
                      caption="Grad-CAM — highlighted disease region")
             st.caption("🔴 Red/warm = high activation | 🔵 Blue = low activation")
 
@@ -855,7 +837,7 @@ def render_detect_tab(model):
         plot_bgcolor="rgba(0,0,0,0)",
         font=dict(family="Inter", size=12),
     )
-    st.plotly_chart(fig, use_container_width=True)
+    st.plotly_chart(fig, width="stretch")
 
 def _render_how_it_works():
     st.markdown("<div style='margin-top:32px'></div>", unsafe_allow_html=True)
@@ -958,7 +940,7 @@ python python/convert_to_tflite.py --data_dir data/PlantVillage
             paper_bgcolor="rgba(0,0,0,0)",
             plot_bgcolor="rgba(0,0,0,0)",
         )
-        st.plotly_chart(fig, use_container_width=True)
+        st.plotly_chart(fig, width="stretch")
 
         st.success(
             f"✅  Float16 quantization reduces model size by **{size_reduction:.0f}%** "
