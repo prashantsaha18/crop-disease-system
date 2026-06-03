@@ -364,7 +364,9 @@ def run_inference(model, pil_img: Image.Image) -> dict:
 def inject_css():
     st.markdown("""
 <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800;900&display=swap" rel="stylesheet">
+<div id="cg-style-inject" style="position:absolute;width:0;height:0;overflow:hidden;opacity:0;pointer-events:none">
 <style>
+
 /* ═══════════════════════════════════════════════════════════════
    CropGuard  —  Premium Design System
    ═══════════════════════════════════════════════════════════════ */
@@ -709,6 +711,7 @@ html, body, [class*="css"] {
 .stat-chip .sc-label { font-size: 0.72rem; color: var(--text-3); font-weight: 500; }
 .stat-chip .sc-value { font-size: 0.88rem; color: var(--green-800); font-weight: 700; }
 </style>
+</div>
 """, unsafe_allow_html=True)
 
 # ─────────────────────────── sidebar ──────────────────────────────────────── #
