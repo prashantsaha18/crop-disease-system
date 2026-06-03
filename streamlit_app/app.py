@@ -174,7 +174,12 @@ def label_to_display(label: str) -> str:
     parts = label.split("___")
     if len(parts) < 2:
         return label
-    plant   = parts[0].replace("_", " ").replace("(including sour)", "").replace(",  bell", " Bell").strip()
+    # Remove parenthetical qualifiers before replacing underscores with spaces
+    plant = parts[0]
+    plant = plant.replace("_(including_sour)", "")  # Cherry_(including_sour) → Cherry
+    plant = plant.replace(",_bell", " Bell")          # Pepper,_bell → Pepper Bell
+    plant = plant.replace("_(maize)", "")             # Corn_(maize) → Corn
+    plant = plant.replace("_", " ").strip()
     disease = parts[1].replace("_", " ").title().strip()
     return f"{plant} — {disease}"
 
@@ -544,10 +549,11 @@ def render_detect_tab(model):
         textposition="outside",
         hovertemplate="%{y}: %{x:.2f}%<extra></extra>",
     ))
+    x_max = max(confs) * 1.2 if confs else 100
     fig.update_layout(
         height=260,
         margin=dict(l=0, r=60, t=10, b=10),
-        xaxis=dict(title="Confidence (%)", range=[0, max(confs) * 1.2]),
+        xaxis=dict(title="Confidence (%)", range=[0, x_max]),
         yaxis=dict(autorange="reversed"),
         paper_bgcolor="rgba(0,0,0,0)",
         plot_bgcolor="rgba(0,0,0,0)",
@@ -655,8 +661,14 @@ def render_encyclopedia_tab():
     st.markdown("### 📚 Disease Encyclopedia — all 38 classes")
 
     # ── filters ───────────────────────────────────────────────────────── #
-    plants = sorted({l.split("___")[0].replace("_(maize)", "").replace("(including_sour)_","")
-                     .replace(",_bell","").strip() for l in ALL_LABELS})
+    # Derive human-readable plant names by stripping the same qualifiers as label_to_display
+    def _plant_name(raw: str) -> str:
+        raw = raw.replace("_(including_sour)", "")
+        raw = raw.replace(",_bell", " Bell")
+        raw = raw.replace("_(maize)", "")
+        return raw.replace("_", " ").strip()
+
+    plants = sorted({_plant_name(l.split("___")[0]) for l in ALL_LABELS})
     col_f, col_s = st.columns([1, 2])
     with col_f:
         plant_filter = st.selectbox("Filter by plant", ["All"] + plants)
@@ -665,8 +677,10 @@ def render_encyclopedia_tab():
 
     filtered = [
         l for l in ALL_LABELS
-        if (plant_filter == "All" or plant_filter.lower() in l.lower())
-        and (not search or search.lower() in l.lower())
+        if (plant_filter == "All"
+            or plant_filter.lower() == _plant_name(l.split("___")[0]).lower())
+        and (not search or search.lower() in label_to_display(l).lower()
+             or search.lower() in l.lower())
     ]
 
     st.caption(f"Showing {len(filtered)} of {len(ALL_LABELS)} classes")

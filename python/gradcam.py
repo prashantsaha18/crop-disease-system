@@ -204,9 +204,8 @@ class GradCAM:
         H, W = original_img.shape[:2]
 
         # ── preprocess for model ─────────────────────────────────────────── #
-        resized = cv2.resize(original_img, IMG_SIZE)
-        resized_rgb = cv2.cvtColor(resized, cv2.COLOR_BGR2RGB) \
-            if resized.shape[2] == 3 else resized
+        # Input is expected to be RGB (as documented); resize preserves channel order
+        resized_rgb = cv2.resize(original_img, IMG_SIZE)
         preprocessed = tf.keras.applications.efficientnet_v2.preprocess_input(
             resized_rgb.astype(np.float32)
         )
