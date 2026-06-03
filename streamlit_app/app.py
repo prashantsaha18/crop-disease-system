@@ -211,13 +211,31 @@ def load_model():
     if not TF_AVAILABLE:
         return None
 
+    # Log resolved path for Streamlit Cloud debugging
+    resolved = MODEL_DIR.resolve()
+    _load_error = None
+
     if MODEL_DIR.exists():
         try:
             model = keras.models.load_model(str(MODEL_DIR))
             st.session_state["model_source"] = "trained"
+            st.session_state["model_path"] = str(resolved)
             return model
         except Exception as e:
-            st.warning(f"Could not load trained model: {e}. Using demo stub.")
+            _load_error = str(e)
+            # Keras 3.x may need compile=False for models saved with older Keras
+            try:
+                model = keras.models.load_model(str(MODEL_DIR), compile=False)
+                st.session_state["model_source"] = "trained"
+                st.session_state["model_path"] = str(resolved)
+                return model
+            except Exception as e2:
+                _load_error = f"{e} | retry with compile=False: {e2}"
+
+    # Store diagnostic info for the stub warning
+    st.session_state["model_load_error"] = _load_error
+    st.session_state["model_path"] = str(resolved)
+    st.session_state["model_path_exists"] = MODEL_DIR.exists()
 
     # ── demo stub with ImageNet weights (untrained head) ──────────────── #
     from tensorflow.keras.applications import EfficientNetV2S
@@ -1122,12 +1140,16 @@ def main():
 
         source = st.session_state.get("model_source", "stub")
         if source == "stub":
-            st.markdown("""
+            _diag_path = st.session_state.get("model_path", "unknown")
+            _diag_exists = st.session_state.get("model_path_exists", "unknown")
+            _diag_error = st.session_state.get("model_load_error", None)
+            _error_html = f"<br/><small>Load error: <code>{_diag_error}</code></small>" if _diag_error else ""
+            st.markdown(f"""
 <div class="stub-warn">
 ⚠️ <strong>Demo mode:</strong> The trained model was not found at
-<code>python/saved_model/crop_disease_model/</code>.
+<code>{_diag_path}</code> (exists: {_diag_exists}).
 Running with ImageNet-pretrained weights only — predictions are not meaningful.
-Run <code>python train.py</code> first, then relaunch.
+Run <code>python train.py</code> first, then relaunch.{_error_html}
 </div>
 """, unsafe_allow_html=True)
         else:
