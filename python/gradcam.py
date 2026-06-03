@@ -125,11 +125,58 @@ class GradCAM:
         This is required for gradient computation via GradientTape.
         """
         target_layer = self._get_layer_from_nested(self.target_layer_name)
-        return keras.Model(
-            inputs=self.model.inputs,
-            outputs=[target_layer.output, self.model.output],
-            name="gradcam_model",
-        )
+        self.is_nested = False
+        self.sub_model = None
+        self.sub_model_idx = -1
+
+        try:
+            return keras.Model(
+                inputs=self.model.inputs,
+                outputs=[target_layer.output, self.model.output],
+                name="gradcam_model",
+            )
+        except ValueError:
+            self.is_nested = True
+            for i, layer in enumerate(self.model.layers):
+                if isinstance(layer, keras.Model):
+                    try:
+                        _ = layer.get_layer(target_layer.name)
+                        self.sub_model = layer
+                        self.sub_model_idx = i
+                        break
+                    except ValueError:
+                        pass
+
+            if self.sub_model is None:
+                raise ValueError(
+                    f"Layer '{self.target_layer_name}' not found in top-level or nested sub-models."
+                )
+
+            return keras.Model(
+                inputs=self.sub_model.inputs,
+                outputs=[target_layer.output, self.sub_model.output],
+                name="gradcam_sub_model",
+            )
+
+    def _forward_preprocess(self, inputs):
+        x = inputs
+        for layer in self.model.layers[:self.sub_model_idx]:
+            if isinstance(layer, keras.layers.InputLayer):
+                continue
+            try:
+                x = layer(x, training=False)
+            except TypeError:
+                x = layer(x)
+        return x
+
+    def _forward_head(self, sub_output):
+        x = sub_output
+        for layer in self.model.layers[self.sub_model_idx + 1:]:
+            try:
+                x = layer(x, training=False)
+            except TypeError:
+                x = layer(x)
+        return x
 
     # ── core ───────────────────────────────────────────────────────────────── #
 
@@ -156,13 +203,20 @@ class GradCAM:
 
         with tf.GradientTape() as tape:
             tape.watch(img_tensor)
-            conv_outputs, predictions = self._grad_model(img_tensor, training=False)
+            if not self.is_nested:
+                conv_outputs, predictions = self._grad_model(img_tensor, training=False)
+            else:
+                sub_inputs = self._forward_preprocess(img_tensor)
+                conv_outputs, sub_outputs = self._grad_model(sub_inputs, training=False)
+                predictions = self._forward_head(sub_outputs)
             if class_idx is None:
                 class_idx = tf.argmax(predictions[0]).numpy()
             class_channel = predictions[:, class_idx]
 
         # gradients of the class score w.r.t. the conv feature map
         grads = tape.gradient(class_channel, conv_outputs)   # (1, h, w, C)
+        if grads is None:
+            return np.zeros(conv_outputs.shape[1:3], dtype=np.float32)
 
         # global average pooling over spatial dims → (C,)
         pooled_grads = tf.reduce_mean(grads, axis=(0, 1, 2))

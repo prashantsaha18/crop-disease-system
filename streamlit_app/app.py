@@ -286,18 +286,71 @@ def run_gradcam(_model_ref, img_array: np.ndarray, class_idx: int) -> np.ndarray
         return np.zeros(IMG_SIZE, dtype=np.float32)
 
     target_layer = _get_nested_layer(_model_ref, target_name)
-    grad_model   = keras.Model(
-        inputs=_model_ref.inputs,
-        outputs=[target_layer.output, _model_ref.output],
-    )
+
+    is_nested = False
+    sub_model = None
+    sub_model_idx = -1
+
+    try:
+        grad_model = keras.Model(
+            inputs=_model_ref.inputs,
+            outputs=[target_layer.output, _model_ref.output],
+        )
+    except ValueError:
+        is_nested = True
+        for i, layer in enumerate(_model_ref.layers):
+            if isinstance(layer, keras.Model):
+                try:
+                    _ = layer.get_layer(target_layer.name)
+                    sub_model = layer
+                    sub_model_idx = i
+                    break
+                except ValueError:
+                    pass
+
+        if sub_model is None:
+            return np.zeros(IMG_SIZE, dtype=np.float32)
+
+        grad_model = keras.Model(
+            inputs=sub_model.inputs,
+            outputs=[target_layer.output, sub_model.output],
+        )
+
+    def forward_preprocess(inputs):
+        x = inputs
+        for layer in _model_ref.layers[:sub_model_idx]:
+            if isinstance(layer, keras.layers.InputLayer):
+                continue
+            try:
+                x = layer(x, training=False)
+            except TypeError:
+                x = layer(x)
+        return x
+
+    def forward_head(sub_output):
+        x = sub_output
+        for layer in _model_ref.layers[sub_model_idx + 1:]:
+            try:
+                x = layer(x, training=False)
+            except TypeError:
+                x = layer(x)
+        return x
 
     img_tensor = tf.cast(img_array, tf.float32)
     with tf.GradientTape() as tape:
         tape.watch(img_tensor)
-        conv_out, preds = grad_model(img_tensor, training=False)
-        class_score     = preds[:, class_idx]
+        if not is_nested:
+            conv_out, preds = grad_model(img_tensor, training=False)
+        else:
+            sub_inputs = forward_preprocess(img_tensor)
+            conv_out, sub_out = grad_model(sub_inputs, training=False)
+            preds = forward_head(sub_out)
+        class_score = preds[:, class_idx]
 
     grads       = tape.gradient(class_score, conv_out)          # (1, h, w, C)
+    if grads is None:
+        return np.zeros(IMG_SIZE, dtype=np.float32)
+
     pooled      = tf.reduce_mean(grads, axis=(0, 1, 2))         # (C,)
     heatmap     = tf.squeeze(conv_out[0] @ pooled[..., tf.newaxis])  # (h, w)
     heatmap     = tf.maximum(heatmap, 0)
