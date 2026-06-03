@@ -260,9 +260,8 @@ class GradCAM:
         # ── preprocess for model ─────────────────────────────────────────── #
         # Input is expected to be RGB (as documented); resize preserves channel order
         resized_rgb = cv2.resize(original_img, IMG_SIZE)
-        preprocessed = tf.keras.applications.efficientnet_v2.preprocess_input(
-            resized_rgb.astype(np.float32)
-        )
+        # Scale to [-1, 1] as expected by the wrapped model
+        preprocessed = (resized_rgb.astype(np.float32) / 127.5) - 1.0
         img_batch = np.expand_dims(preprocessed, 0)
 
         # ── compute heatmap ──────────────────────────────────────────────── #
@@ -303,9 +302,8 @@ class GradCAM:
         """
         # preprocess
         resized = cv2.resize(original_img, IMG_SIZE)
-        prep = tf.keras.applications.efficientnet_v2.preprocess_input(
-            resized.astype(np.float32)
-        )
+        # Scale to [-1, 1] as expected by the wrapped model
+        prep = (resized.astype(np.float32) / 127.5) - 1.0
         batch = np.expand_dims(prep, 0)
 
         # predict
@@ -374,8 +372,8 @@ def generate_gradcam_grid(
 
 def parse_args():
     p = argparse.ArgumentParser(description="Generate Grad-CAM for a single image.")
-    p.add_argument("--model_dir", default="saved_model/crop_disease_model",
-                   help="Path to the saved Keras model directory.")
+    p.add_argument("--model_dir", default="streamlit_app/saved_model/crop_disease_model.keras",
+                   help="Path to the saved Keras model file.")
     p.add_argument("--image",     required=True,
                    help="Path to input leaf image.")
     p.add_argument("--out_path",  default="gradcam_output.jpg",
@@ -393,7 +391,8 @@ if __name__ == "__main__":
     model = keras.models.load_model(args.model_dir)
 
     # load class names (optional)
-    labels_path = os.path.join(args.model_dir, "class_names.txt")
+    parent_dir = os.path.dirname(args.model_dir)
+    labels_path = os.path.join(parent_dir, "class_names.txt")
     class_names = None
     if os.path.exists(labels_path):
         class_names = open(labels_path).read().strip().splitlines()

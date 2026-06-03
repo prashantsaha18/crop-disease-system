@@ -198,7 +198,7 @@ def is_healthy(label: str) -> bool:
 
 # ─────────────────────────── model loading ────────────────────────────────── #
 
-MODEL_DIR = Path(__file__).parent.parent / "python" / "saved_model" / "crop_disease_model.keras"
+MODEL_DIR = Path(__file__).parent / "saved_model" / "crop_disease_model.keras"
 
 @st.cache_resource(show_spinner=False)
 def load_model():
@@ -372,9 +372,7 @@ def overlay_heatmap(original_rgb: np.ndarray, heatmap: np.ndarray, alpha: float 
 
 def _efficientnet_preprocess(rgb_arr: np.ndarray) -> np.ndarray:
     """EfficientNetV2 preprocess_input: scales [0,255] to [-1, 1]."""
-    if TF_AVAILABLE:
-        return tf.keras.applications.efficientnet_v2.preprocess_input(rgb_arr)
-    # Fallback: manual normalisation identical to the TF implementation
+    # Always scale to [-1, 1] as expected by the wrapped model/Flutter app
     return (rgb_arr / 127.5) - 1.0
 
 def preprocess(pil_img: Image.Image) -> tuple[np.ndarray, np.ndarray]:
@@ -912,7 +910,7 @@ python python/convert_to_tflite.py --data_dir data/PlantVillage
         # ── float32 baseline (Keras model, simulates full-precision) ─── #
         fp32_lats = []
         for i, img in enumerate(images):
-            prep  = tf.keras.applications.efficientnet_v2.preprocess_input(img)
+            prep  = _efficientnet_preprocess(img)
             batch = np.expand_dims(prep, 0)
             t0    = time.perf_counter()
             model.predict(batch, verbose=0)

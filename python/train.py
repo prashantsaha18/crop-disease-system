@@ -116,9 +116,9 @@ def load_dataset(
     val_ds    = full_ds.skip(n_train).take(n_val)
     test_ds   = full_ds.skip(n_train + n_val)
 
-    # ── preprocessing helper ─────────────────────────────────────────────── #
-    # EfficientNetV2 expects pixels in [0, 255]; preprocess_input handles the rest.
-    preprocess = tf.keras.applications.efficientnet_v2.preprocess_input
+    # Scale inputs to [-1, 1] range; the model will rescale back to [0, 255] internally
+    def preprocess(img):
+        return (img / 127.5) - 1.0
 
     augment = build_augmentation()
 
@@ -170,7 +170,9 @@ def build_model(num_classes: int = NUM_CLASSES) -> keras.Model:
     base.trainable = False             # freeze entire base
 
     inputs  = keras.Input(shape=(*IMG_SIZE, 3), name="input_image")
-    x       = base(inputs, training=False)
+    # Preprocess inputs from [-1, 1] to [0, 255] for the base model
+    rescaled = layers.Rescaling(scale=127.5, offset=127.5, name="rescale_neg1_pos1_to_0_255")(inputs)
+    x       = base(rescaled, training=False)
     x       = layers.GlobalAveragePooling2D(name="gap")(x)
     x       = layers.BatchNormalization()(x)
     x       = layers.Dropout(0.4, name="top_dropout")(x)

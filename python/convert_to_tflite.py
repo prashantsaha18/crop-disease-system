@@ -46,12 +46,12 @@ SEED       = 42
 
 def convert_float32(model: keras.Model, out_path: str) -> str:
     """Convert to TFLite float32 (no quantization) for baseline comparison."""
-    print("[Convert] Building float32 TFLite model …")
+    print("[Convert] Building float32 TFLite model ...")
     converter = tf.lite.TFLiteConverter.from_keras_model(model)
     tflite_model = converter.convert()
     _save(tflite_model, out_path)
     mb = os.path.getsize(out_path) / 1e6
-    print(f"[Convert] float32 TFLite  →  {out_path}  ({mb:.2f} MB)")
+    print(f"[Convert] float32 TFLite  ->  {out_path}  ({mb:.2f} MB)")
     return out_path
 
 
@@ -61,10 +61,10 @@ def convert_float16(model: keras.Model, out_path: str) -> str:
     Weights are quantized to float16; activations remain float32 at runtime
     on most CPU/GPU targets, but the model file is ~50 % smaller.
     """
-    print("[Convert] Building float16 quantized TFLite model …")
+    print("[Convert] Building float16 quantized TFLite model ...")
     converter = tf.lite.TFLiteConverter.from_keras_model(model)
 
-    # ── post-training quantization settings ─────────────────────────────── #
+    # -- post-training quantization settings ------------------------------- #
     converter.optimizations         = [tf.lite.Optimize.DEFAULT]
     converter.target_spec.supported_types = [tf.float16]
 
@@ -77,7 +77,7 @@ def convert_float16(model: keras.Model, out_path: str) -> str:
     tflite_model = converter.convert()
     _save(tflite_model, out_path)
     mb = os.path.getsize(out_path) / 1e6
-    print(f"[Convert] float16 TFLite  →  {out_path}  ({mb:.2f} MB)")
+    print(f"[Convert] float16 TFLite  ->  {out_path}  ({mb:.2f} MB)")
     return out_path
 
 
@@ -106,9 +106,8 @@ class TFLiteRunner:
         img_array : (H, W, 3) uint8 or float32, will be pre-processed internally.
         Returns   : (num_classes,) softmax probabilities.
         """
-        prep = tf.keras.applications.efficientnet_v2.preprocess_input(
-            img_array.astype(np.float32)
-        )
+        # Scale to [-1, 1] as expected by the wrapped model
+        prep = (img_array.astype(np.float32) / 127.5) - 1.0
         batch = np.expand_dims(prep, axis=0).astype(self.input_dtype)
         self.interpreter.set_tensor(self.input_idx, batch)
         self.interpreter.invoke()
@@ -183,23 +182,23 @@ def run_benchmark(
     """Full benchmark: load models + images, measure, print table."""
 
     # ── load images ───────────────────────────────────────────────────────── #
-    print(f"\n[Bench] Loading {n} sample images …")
+    print(f"\n[Bench] Loading {n} sample images ...")
     if os.path.isdir(data_dir):
         paths  = load_sample_images(data_dir, n)
         images = preload_images(paths)
     else:
-        print("[Bench] data_dir not found — generating random noise images.")
+        print("[Bench] data_dir not found - generating random noise images.")
         rng    = np.random.default_rng(SEED)
         images = rng.integers(0, 255, size=(n, *IMG_SIZE, 3), dtype=np.uint8)
 
     print(f"[Bench] Images loaded: {images.shape}")
 
-    # ── run ───────────────────────────────────────────────────────────────── #
-    print("\n[Bench] Benchmarking float32 model …")
+    # -- run ----------------------------------------------------------------- #
+    print("\n[Bench] Benchmarking float32 model ...")
     fp32_runner = TFLiteRunner(fp32_path)
     fp32_stats  = benchmark_model(fp32_runner, images)
 
-    print("[Bench] Benchmarking float16 model …")
+    print("[Bench] Benchmarking float16 model ...")
     fp16_runner = TFLiteRunner(fp16_path)
     fp16_stats  = benchmark_model(fp16_runner, images)
 
@@ -214,10 +213,10 @@ def run_benchmark(
     )
 
     # ── report ────────────────────────────────────────────────────────────── #
-    border = "─" * 60
-    print(f"\n{'═'*60}")
+    border = "-" * 60
+    print(f"\n{'='*60}")
     print(f"  Benchmark Results  (n={fp32_stats['n']} images)")
-    print(f"{'═'*60}")
+    print(f"{'='*60}")
     print(f"  {'Model':<20}  {'Size (MB)':>10}  {'Mean ms':>10}  {'P95 ms':>10}")
     print(f"  {border}")
     print(f"  {'Float32 baseline':<20}  {fp32_mb:>10.2f}  "
@@ -230,8 +229,8 @@ def run_benchmark(
         print(f"  Latency improvement : {latency_improvement:+.1f} %  (lower is better)")
     else:
         print(f"  Latency overhead    : {-latency_improvement:.1f} %  "
-              "(float16 slower on this CPU — normal for CPU-only runtimes)")
-    print(f"{'═'*60}\n")
+              "(float16 slower on this CPU - normal for CPU-only runtimes)")
+    print(f"{'='*60}\n")
 
 
 # ─────────────────────────── accuracy check ───────────────────────────────── #
@@ -249,9 +248,8 @@ def verify_accuracy_parity(
     n = min(20, len(images))
     matches = 0
     for img in images[:n]:
-        prep = tf.keras.applications.efficientnet_v2.preprocess_input(
-            img.astype(np.float32)
-        )
+        # Scale to [-1, 1] as expected by the wrapped model
+        prep = (img.astype(np.float32) / 127.5) - 1.0
         keras_pred = int(np.argmax(
             original_model.predict(np.expand_dims(prep, 0), verbose=0)[0]
         ))
@@ -268,7 +266,7 @@ def verify_accuracy_parity(
 
 def parse_args():
     p = argparse.ArgumentParser(description="Convert Keras model to TFLite.")
-    p.add_argument("--model_dir",  default="saved_model/crop_disease_model")
+    p.add_argument("--model_dir",  default="streamlit_app/saved_model/crop_disease_model.keras")
     p.add_argument("--data_dir",   default="data/PlantVillage",
                    help="PlantVillage root dir (for benchmark images).")
     p.add_argument("--output_dir", default="tflite_models")
@@ -281,7 +279,7 @@ if __name__ == "__main__":
     args = parse_args()
 
     print(f"[INFO] TensorFlow {tf.__version__}")
-    print(f"[INFO] Loading Keras model from {args.model_dir} …")
+    print(f"[INFO] Loading Keras model from {args.model_dir} ...")
     model = keras.models.load_model(args.model_dir)
     model.summary(line_length=100, expand_nested=False)
 
