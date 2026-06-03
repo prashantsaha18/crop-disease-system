@@ -362,75 +362,21 @@ def run_inference(model, pil_img: Image.Image) -> dict:
 # ─────────────────────────── CSS ──────────────────────────────────────────── #
 
 def inject_css():
-    st.markdown("""
-<link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800;900&display=swap" rel="stylesheet">
-<div id="cg-style-inject" style="position:absolute;width:0;height:0;overflow:hidden;opacity:0;pointer-events:none">
-<style>
-
-/* ═══════════════════════════════════════════════════════════════
-   CropGuard  —  Premium Design System
-   ═══════════════════════════════════════════════════════════════ */
-
-:root {
-  --green-900: #0d2b16;
-  --green-800: #1A472A;
-  --green-700: #1e5631;
-  --green-600: #2E7D32;
-  --green-500: #388E3C;
-  --green-400: #4CAF50;
-  --green-300: #81C784;
-  --green-100: #E8F5E9;
-  --green-50:  #F1F8F2;
-  --amber-500: #E8A020;
-  --amber-100: #FFF8E1;
-  --red-500:   #D64045;
-  --red-100:   #FDE8E8;
-  --surface:   #FFFFFF;
-  --surface-2: #F4F7F2;
-  --border:    #D8E4D5;
-  --text-1:    #111827;
-  --text-2:    #374151;
-  --text-3:    #6B7280;
-  --shadow-sm: 0 1px 3px rgba(0,0,0,.08), 0 1px 2px rgba(0,0,0,.06);
-  --shadow-md: 0 4px 12px rgba(0,0,0,.10), 0 2px 4px rgba(0,0,0,.06);
-  --shadow-lg: 0 10px 30px rgba(0,0,0,.12), 0 4px 8px rgba(0,0,0,.08);
-  --radius-sm: 8px;
-  --radius-md: 14px;
-  --radius-lg: 20px;
-  --radius-xl: 28px;
-}
-
-/* ── base ──────────────────────────────────────────────────────── */
+    st.markdown('<link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800;900&display=swap" rel="stylesheet">', unsafe_allow_html=True)
+    st.markdown("""<style>
 html, body, [class*="css"] {
   font-family: 'Inter', system-ui, -apple-system, sans-serif;
-  color: var(--text-1);
+  color: #111827;
 }
-
-/* ── hero header ───────────────────────────────────────────────── */
 .cg-header {
-  background: linear-gradient(135deg, var(--green-900) 0%, var(--green-800) 45%, var(--green-600) 100%);
-  border-radius: var(--radius-xl);
+  background: linear-gradient(135deg, #0d2b16 0%, #1A472A 45%, #2E7D32 100%);
+  border-radius: 28px;
   padding: 36px 40px;
   color: white;
   margin-bottom: 28px;
   position: relative;
   overflow: hidden;
-  box-shadow: var(--shadow-lg);
-}
-.cg-header::before {
-  content: '';
-  position: absolute;
-  top: -60px; right: -60px;
-  width: 220px; height: 220px;
-  background: radial-gradient(circle, rgba(255,255,255,.07) 0%, transparent 70%);
-  border-radius: 50%;
-}
-.cg-header::after {
-  content: '';
-  position: absolute;
-  bottom: -40px; left: 30%;
-  width: 300px; height: 120px;
-  background: radial-gradient(ellipse, rgba(76,175,80,.15) 0%, transparent 70%);
+  box-shadow: 0 10px 30px rgba(0,0,0,.12), 0 4px 8px rgba(0,0,0,.08);
 }
 .cg-header h1 {
   font-size: 2.4rem;
@@ -460,22 +406,17 @@ html, body, [class*="css"] {
   font-weight: 600;
   margin: 3px 4px 3px 0;
   letter-spacing: .3px;
-  backdrop-filter: blur(4px);
 }
-
-/* ── info / unavailable banner ─────────────────────────────────── */
 .cg-info-banner {
   background: linear-gradient(135deg, #1e3a2f 0%, #1a472a 100%);
-  border-radius: var(--radius-lg);
+  border-radius: 20px;
   padding: 28px 32px;
   color: white;
   margin-bottom: 20px;
-  box-shadow: var(--shadow-md);
+  box-shadow: 0 4px 12px rgba(0,0,0,.10), 0 2px 4px rgba(0,0,0,.06);
 }
 .cg-info-banner h3 { margin: 0 0 8px; font-size: 1.15rem; font-weight: 700; }
 .cg-info-banner p  { margin: 0; font-size: 0.88rem; opacity: 0.85; line-height: 1.6; }
-
-/* ── feature grid (TF-unavailable showcase) ────────────────────── */
 .feature-grid {
   display: grid;
   grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
@@ -483,42 +424,40 @@ html, body, [class*="css"] {
   margin: 20px 0;
 }
 .feature-card {
-  background: var(--surface);
-  border: 1px solid var(--border);
-  border-radius: var(--radius-md);
+  background: #FFFFFF;
+  border: 1px solid #D8E4D5;
+  border-radius: 14px;
   padding: 20px 18px;
   text-align: center;
-  box-shadow: var(--shadow-sm);
+  box-shadow: 0 1px 3px rgba(0,0,0,.08), 0 1px 2px rgba(0,0,0,.06);
   transition: transform .2s ease, box-shadow .2s ease;
 }
 .feature-card:hover {
   transform: translateY(-3px);
-  box-shadow: var(--shadow-md);
+  box-shadow: 0 4px 12px rgba(0,0,0,.10), 0 2px 4px rgba(0,0,0,.06);
 }
 .feature-card .fc-icon { font-size: 2rem; margin-bottom: 10px; }
 .feature-card .fc-title {
   font-size: 0.9rem; font-weight: 700;
-  color: var(--green-800); margin-bottom: 6px;
+  color: #1A472A; margin-bottom: 6px;
 }
 .feature-card .fc-desc {
-  font-size: 0.78rem; color: var(--text-3); line-height: 1.5;
+  font-size: 0.78rem; color: #6B7280; line-height: 1.5;
 }
-
-/* ── result cards ──────────────────────────────────────────────── */
 .disease-card {
-  background: var(--surface);
-  border: 1px solid var(--border);
-  border-radius: var(--radius-lg);
+  background: #FFFFFF;
+  border: 1px solid #D8E4D5;
+  border-radius: 20px;
   padding: 22px 26px;
   margin-bottom: 14px;
-  box-shadow: var(--shadow-sm);
+  box-shadow: 0 1px 3px rgba(0,0,0,.08), 0 1px 2px rgba(0,0,0,.06);
   transition: box-shadow .2s;
 }
-.disease-card:hover { box-shadow: var(--shadow-md); }
+.disease-card:hover { box-shadow: 0 4px 12px rgba(0,0,0,.10), 0 2px 4px rgba(0,0,0,.06); }
 .disease-title {
   font-size: 1.25rem;
   font-weight: 800;
-  color: var(--green-800);
+  color: #1A472A;
   letter-spacing: -0.3px;
   margin-bottom: 10px;
 }
@@ -532,25 +471,21 @@ html, body, [class*="css"] {
   font-weight: 700;
   letter-spacing: .2px;
 }
-.badge-disease  { background: var(--red-100);   color: var(--red-500); }
-.badge-healthy  { background: var(--green-100); color: var(--green-600); }
-
-/* ── metric pills ──────────────────────────────────────────────── */
+.badge-disease  { background: #FDE8E8; color: #D64045; }
+.badge-healthy  { background: #E8F5E9; color: #2E7D32; }
 .metric-pill {
-  background: var(--green-100);
-  border: 1px solid var(--border);
-  border-radius: var(--radius-sm);
+  background: #E8F5E9;
+  border: 1px solid #D8E4D5;
+  border-radius: 8px;
   padding: 5px 12px;
   font-size: 0.76rem;
-  color: var(--green-800);
+  color: #1A472A;
   font-weight: 600;
   display: inline-block;
   margin: 4px 3px;
 }
-
-/* ── confidence bar ────────────────────────────────────────────── */
 .conf-track {
-  background: var(--green-100);
+  background: #E8F5E9;
   border-radius: 99px;
   height: 8px;
   margin: 8px 0 16px;
@@ -561,40 +496,36 @@ html, body, [class*="css"] {
   border-radius: 99px;
   transition: width .6s cubic-bezier(.4,0,.2,1);
 }
-
-/* ── treatment card ────────────────────────────────────────────── */
 .treatment-card {
   background: #fffbf0;
   border: 1px solid #f0d075;
-  border-left: 4px solid var(--amber-500);
-  border-radius: var(--radius-md);
+  border-left: 4px solid #E8A020;
+  border-radius: 14px;
   padding: 18px 22px;
   margin-top: 10px;
   font-size: 0.88rem;
   line-height: 1.65;
-  color: var(--text-2);
+  color: #374151;
 }
-.treatment-card strong { color: var(--text-1); }
-
-/* ── how-it-works step cards ───────────────────────────────────── */
+.treatment-card strong { color: #111827; }
 .step-card {
-  background: var(--surface);
-  border: 1px solid var(--border);
-  border-radius: var(--radius-md);
+  background: #FFFFFF;
+  border: 1px solid #D8E4D5;
+  border-radius: 14px;
   padding: 22px 18px;
   text-align: center;
-  box-shadow: var(--shadow-sm);
+  box-shadow: 0 1px 3px rgba(0,0,0,.08), 0 1px 2px rgba(0,0,0,.06);
   height: 100%;
   transition: transform .2s ease, box-shadow .2s ease;
 }
 .step-card:hover {
   transform: translateY(-4px);
-  box-shadow: var(--shadow-md);
+  box-shadow: 0 4px 12px rgba(0,0,0,.10), 0 2px 4px rgba(0,0,0,.06);
 }
 .step-icon { font-size: 2.2rem; margin-bottom: 12px; }
 .step-number {
   display: inline-block;
-  background: var(--green-800);
+  background: #1A472A;
   color: white;
   border-radius: 50%;
   width: 24px; height: 24px;
@@ -606,31 +537,27 @@ html, body, [class*="css"] {
 .step-title {
   font-size: 0.92rem;
   font-weight: 700;
-  color: var(--green-800);
+  color: #1A472A;
   margin-bottom: 6px;
 }
 .step-desc {
   font-size: 0.78rem;
-  color: var(--text-3);
+  color: #6B7280;
   line-height: 1.5;
 }
-
-/* ── section label ─────────────────────────────────────────────── */
 .section-label {
   font-size: 0.7rem;
   font-weight: 700;
   text-transform: uppercase;
   letter-spacing: 1.2px;
-  color: var(--text-3);
+  color: #6B7280;
   margin-bottom: 12px;
 }
-
-/* ── status/stub banners ───────────────────────────────────────── */
 .stub-warn {
-  background: var(--amber-100);
+  background: #FFF8E1;
   border: 1px solid #f0d075;
-  border-left: 4px solid var(--amber-500);
-  border-radius: var(--radius-md);
+  border-left: 4px solid #E8A020;
+  border-radius: 14px;
   padding: 14px 20px;
   font-size: 0.85rem;
   color: #5a4000;
@@ -638,19 +565,12 @@ html, body, [class*="css"] {
 }
 .tf-unavail-banner {
   background: linear-gradient(135deg, #0d2b16 0%, #1A472A 100%);
-  border-radius: var(--radius-lg);
+  border-radius: 20px;
   padding: 30px 34px;
   color: white;
   margin-bottom: 24px;
-  box-shadow: var(--shadow-lg);
+  box-shadow: 0 10px 30px rgba(0,0,0,.12), 0 4px 8px rgba(0,0,0,.08);
   position: relative; overflow: hidden;
-}
-.tf-unavail-banner::after {
-  content:'';
-  position:absolute; top:-50px; right:-50px;
-  width:180px; height:180px;
-  background: radial-gradient(circle, rgba(255,255,255,.06) 0%, transparent 70%);
-  border-radius:50%;
 }
 .tf-unavail-banner h3 {
   margin: 0 0 8px;
@@ -676,31 +596,27 @@ html, body, [class*="css"] {
 .tf-local-box {
   background: rgba(255,255,255,.08);
   border: 1px solid rgba(255,255,255,.18);
-  border-radius: var(--radius-sm);
+  border-radius: 8px;
   padding: 12px 16px;
   margin-top: 16px;
   font-size: 0.83rem;
-  font-family: 'SF Mono', 'Fira Code', monospace;
+  font-family: monospace;
   opacity: 0.9;
 }
-
-/* ── offline badge ─────────────────────────────────────────────── */
 .offline-badge {
-  background: var(--green-100);
-  color: var(--green-700);
+  background: #E8F5E9;
+  color: #1e5631;
   border-radius: 20px;
   padding: 5px 14px;
   font-size: 0.75rem;
   font-weight: 700;
-  border: 1px solid var(--green-300);
+  border: 1px solid #81C784;
   display: inline-block;
 }
-
-/* ── stat chip (sidebar) ───────────────────────────────────────── */
 .stat-chip {
-  background: var(--green-50);
-  border: 1px solid var(--border);
-  border-radius: var(--radius-sm);
+  background: #F1F8F2;
+  border: 1px solid #D8E4D5;
+  border-radius: 8px;
   padding: 8px 12px;
   margin-bottom: 8px;
   display: flex;
@@ -708,11 +624,9 @@ html, body, [class*="css"] {
   gap: 10px;
 }
 .stat-chip .sc-icon { font-size: 1.1rem; }
-.stat-chip .sc-label { font-size: 0.72rem; color: var(--text-3); font-weight: 500; }
-.stat-chip .sc-value { font-size: 0.88rem; color: var(--green-800); font-weight: 700; }
-</style>
-</div>
-""", unsafe_allow_html=True)
+.stat-chip .sc-label { font-size: 0.72rem; color: #6B7280; font-weight: 500; }
+.stat-chip .sc-value { font-size: 0.88rem; color: #1A472A; font-weight: 700; }
+</style>""", unsafe_allow_html=True)
 
 # ─────────────────────────── sidebar ──────────────────────────────────────── #
 
