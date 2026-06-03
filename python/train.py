@@ -217,7 +217,6 @@ def get_callbacks(phase: int, ckpt_dir: str) -> list:
             min_lr=1e-7,
             verbose=1,
         ),
-        TensorBoard(log_dir=os.path.join(ckpt_dir, f"logs/phase{phase}")),
     ]
 
 
@@ -227,31 +226,35 @@ def train(args):
     tf.random.set_seed(SEED)
     np.random.seed(SEED)
 
-    # ── mixed precision (optional speedup on GPU) ────────────────────────── #
-    policy = tf.keras.mixed_precision.Policy("mixed_float16")
-    tf.keras.mixed_precision.set_global_policy(policy)
-    print(f"[INFO] Compute dtype: {policy.compute_dtype}")
+    # Set mixed precision only if GPU is available to prevent CPU numerical issues
+    gpus = tf.config.list_physical_devices('GPU')
+    if gpus:
+        policy = tf.keras.mixed_precision.Policy("mixed_float16")
+        tf.keras.mixed_precision.set_global_policy(policy)
+        print(f"[INFO] Compute dtype: {policy.compute_dtype}")
+    else:
+        print("[INFO] GPU not available. Using default float32 precision.")
 
     # ── data ─────────────────────────────────────────────────────────────── #
-    print("\n[INFO] Loading dataset …")
+    print("\n[INFO] Loading dataset ...")
     train_ds, val_ds, test_ds, class_names = load_dataset(
         args.data_dir, args.batch_size
     )
-    print(f"[INFO] Classes ({len(class_names)}): {class_names[:5]} … {class_names[-3:]}")
+    print(f"[INFO] Classes ({len(class_names)}): {class_names[:5]} ... {class_names[-3:]}")
 
     # ── model ─────────────────────────────────────────────────────────────── #
-    print("\n[INFO] Building model …")
+    print("\n[INFO] Building model ...")
     model, base = build_model(len(class_names))
     model.summary(line_length=100)
 
     os.makedirs(args.ckpt_dir, exist_ok=True)
 
-    # ════════════════════════════════════════════════════════════════════════ #
-    #  PHASE 1 – train head only
-    # ════════════════════════════════════════════════════════════════════════ #
-    print("\n" + "═" * 60)
-    print("  PHASE 1  –  Training classification head (base frozen)")
-    print("═" * 60)
+    # ======================================================================== #
+    #  PHASE 1 - train head only
+    # ======================================================================== #
+    print("\n" + "=" * 60)
+    print("  PHASE 1  -  Training classification head (base frozen)")
+    print("=" * 60)
 
     model.compile(
         optimizer=keras.optimizers.Adam(PHASE1_LR),
@@ -270,12 +273,12 @@ def train(args):
     print(f"[INFO] Phase 1 done in {(time.time()-t0)/60:.1f} min")
     print(f"       Best val_accuracy: {max(hist1.history['val_accuracy']):.4f}")
 
-    # ════════════════════════════════════════════════════════════════════════ #
-    #  PHASE 2 – unfreeze top-20 layers, fine-tune
-    # ════════════════════════════════════════════════════════════════════════ #
-    print("\n" + "═" * 60)
-    print("  PHASE 2  –  Fine-tuning top-20 base layers")
-    print("═" * 60)
+    # ======================================================================== #
+    #  PHASE 2 - unfreeze top-20 layers, fine-tune
+    # ======================================================================== #
+    print("\n" + "=" * 60)
+    print("  PHASE 2  -  Fine-tuning top-20 base layers")
+    print("=" * 60)
 
     unfreeze_top_n(base, UNFREEZE_N)
 
@@ -304,24 +307,26 @@ def train(args):
             "Consider more epochs or different augmentation."
         )
     else:
-        print(f"\n[SUCCESS] ≥ 90 % validation accuracy achieved: {best_val_acc:.4f}")
+        print(f"\n[SUCCESS] >= 90 % validation accuracy achieved: {best_val_acc:.4f}")
 
     # ── test evaluation ───────────────────────────────────────────────────── #
-    print("\n[INFO] Evaluating on held-out test set …")
+    print("\n[INFO] Evaluating on held-out test set ...")
     test_loss, test_acc = model.evaluate(test_ds, verbose=1)
     print(f"[INFO] Test accuracy: {test_acc:.4f}")
 
     # ── save model ────────────────────────────────────────────────────────── #
     out_dir = args.output_dir
-    os.makedirs(out_dir, exist_ok=True)
+    parent_dir = os.path.dirname(out_dir)
+    if parent_dir:
+        os.makedirs(parent_dir, exist_ok=True)
     model.save(out_dir)
-    print(f"\n[INFO] Full model saved → {out_dir}")
+    print(f"\n[INFO] Full model saved -> {out_dir}")
 
     # ── save class names ──────────────────────────────────────────────────── #
-    labels_path = os.path.join(out_dir, "class_names.txt")
+    labels_path = os.path.join(parent_dir, "class_names.txt")
     with open(labels_path, "w") as f:
         f.write("\n".join(class_names))
-    print(f"[INFO] Class names saved → {labels_path}")
+    print(f"[INFO] Class names saved -> {labels_path}")
 
     return model, class_names
 
@@ -332,7 +337,7 @@ def parse_args():
     p = argparse.ArgumentParser(description="Train crop disease classifier.")
     p.add_argument("--data_dir",    default="data/PlantVillage",
                    help="Root directory of PlantVillage dataset.")
-    p.add_argument("--output_dir",  default="saved_model/crop_disease_model",
+    p.add_argument("--output_dir",  default="saved_model/crop_disease_model.keras",
                    help="Where to save the final Keras model.")
     p.add_argument("--ckpt_dir",    default="checkpoints",
                    help="Directory to save best-epoch checkpoints.")

@@ -198,7 +198,7 @@ def is_healthy(label: str) -> bool:
 
 # ─────────────────────────── model loading ────────────────────────────────── #
 
-MODEL_DIR = Path(__file__).parent.parent / "python" / "saved_model" / "crop_disease_model"
+MODEL_DIR = Path(__file__).parent.parent / "python" / "saved_model" / "crop_disease_model.keras"
 
 @st.cache_resource(show_spinner=False)
 def load_model():
