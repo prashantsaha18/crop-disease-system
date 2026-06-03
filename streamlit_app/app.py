@@ -363,82 +363,351 @@ def run_inference(model, pil_img: Image.Image) -> dict:
 
 def inject_css():
     st.markdown("""
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800;900&display=swap" rel="stylesheet">
 <style>
-/* ── global ─────────────────────────────────────────────────── */
-html, body, [class*="css"] { font-family: 'Inter', sans-serif; }
+/* ═══════════════════════════════════════════════════════════════
+   CropGuard  —  Premium Design System
+   ═══════════════════════════════════════════════════════════════ */
 
-/* ── header strip ────────────────────────────────────────────── */
+:root {
+  --green-900: #0d2b16;
+  --green-800: #1A472A;
+  --green-700: #1e5631;
+  --green-600: #2E7D32;
+  --green-500: #388E3C;
+  --green-400: #4CAF50;
+  --green-300: #81C784;
+  --green-100: #E8F5E9;
+  --green-50:  #F1F8F2;
+  --amber-500: #E8A020;
+  --amber-100: #FFF8E1;
+  --red-500:   #D64045;
+  --red-100:   #FDE8E8;
+  --surface:   #FFFFFF;
+  --surface-2: #F4F7F2;
+  --border:    #D8E4D5;
+  --text-1:    #111827;
+  --text-2:    #374151;
+  --text-3:    #6B7280;
+  --shadow-sm: 0 1px 3px rgba(0,0,0,.08), 0 1px 2px rgba(0,0,0,.06);
+  --shadow-md: 0 4px 12px rgba(0,0,0,.10), 0 2px 4px rgba(0,0,0,.06);
+  --shadow-lg: 0 10px 30px rgba(0,0,0,.12), 0 4px 8px rgba(0,0,0,.08);
+  --radius-sm: 8px;
+  --radius-md: 14px;
+  --radius-lg: 20px;
+  --radius-xl: 28px;
+}
+
+/* ── base ──────────────────────────────────────────────────────── */
+html, body, [class*="css"] {
+  font-family: 'Inter', system-ui, -apple-system, sans-serif;
+  color: var(--text-1);
+}
+
+/* ── hero header ───────────────────────────────────────────────── */
 .cg-header {
-    background: linear-gradient(135deg, #1A472A 0%, #2E7D32 100%);
-    border-radius: 16px;
-    padding: 28px 32px;
-    color: white;
-    margin-bottom: 24px;
+  background: linear-gradient(135deg, var(--green-900) 0%, var(--green-800) 45%, var(--green-600) 100%);
+  border-radius: var(--radius-xl);
+  padding: 36px 40px;
+  color: white;
+  margin-bottom: 28px;
+  position: relative;
+  overflow: hidden;
+  box-shadow: var(--shadow-lg);
 }
-.cg-header h1 { font-size: 2rem; font-weight: 800; margin: 0; }
-.cg-header p  { font-size: 0.9rem; opacity: 0.85; margin: 4px 0 0; }
+.cg-header::before {
+  content: '';
+  position: absolute;
+  top: -60px; right: -60px;
+  width: 220px; height: 220px;
+  background: radial-gradient(circle, rgba(255,255,255,.07) 0%, transparent 70%);
+  border-radius: 50%;
+}
+.cg-header::after {
+  content: '';
+  position: absolute;
+  bottom: -40px; left: 30%;
+  width: 300px; height: 120px;
+  background: radial-gradient(ellipse, rgba(76,175,80,.15) 0%, transparent 70%);
+}
+.cg-header h1 {
+  font-size: 2.4rem;
+  font-weight: 900;
+  margin: 0 0 6px;
+  letter-spacing: -0.5px;
+  position: relative; z-index:1;
+}
+.cg-header p {
+  font-size: 0.95rem;
+  opacity: 0.82;
+  margin: 0;
+  font-weight: 400;
+  position: relative; z-index:1;
+}
+.cg-header .cg-tags {
+  margin-top: 16px;
+  position: relative; z-index:1;
+}
+.cg-tag {
+  display: inline-block;
+  background: rgba(255,255,255,.15);
+  border: 1px solid rgba(255,255,255,.25);
+  border-radius: 20px;
+  padding: 3px 12px;
+  font-size: 0.75rem;
+  font-weight: 600;
+  margin: 3px 4px 3px 0;
+  letter-spacing: .3px;
+  backdrop-filter: blur(4px);
+}
 
-/* ── result cards ────────────────────────────────────────────── */
+/* ── info / unavailable banner ─────────────────────────────────── */
+.cg-info-banner {
+  background: linear-gradient(135deg, #1e3a2f 0%, #1a472a 100%);
+  border-radius: var(--radius-lg);
+  padding: 28px 32px;
+  color: white;
+  margin-bottom: 20px;
+  box-shadow: var(--shadow-md);
+}
+.cg-info-banner h3 { margin: 0 0 8px; font-size: 1.15rem; font-weight: 700; }
+.cg-info-banner p  { margin: 0; font-size: 0.88rem; opacity: 0.85; line-height: 1.6; }
+
+/* ── feature grid (TF-unavailable showcase) ────────────────────── */
+.feature-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+  gap: 14px;
+  margin: 20px 0;
+}
+.feature-card {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-md);
+  padding: 20px 18px;
+  text-align: center;
+  box-shadow: var(--shadow-sm);
+  transition: transform .2s ease, box-shadow .2s ease;
+}
+.feature-card:hover {
+  transform: translateY(-3px);
+  box-shadow: var(--shadow-md);
+}
+.feature-card .fc-icon { font-size: 2rem; margin-bottom: 10px; }
+.feature-card .fc-title {
+  font-size: 0.9rem; font-weight: 700;
+  color: var(--green-800); margin-bottom: 6px;
+}
+.feature-card .fc-desc {
+  font-size: 0.78rem; color: var(--text-3); line-height: 1.5;
+}
+
+/* ── result cards ──────────────────────────────────────────────── */
 .disease-card {
-    background: #fff;
-    border: 1px solid #DEE5D8;
-    border-radius: 16px;
-    padding: 20px 24px;
-    margin-bottom: 12px;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-lg);
+  padding: 22px 26px;
+  margin-bottom: 14px;
+  box-shadow: var(--shadow-sm);
+  transition: box-shadow .2s;
 }
-.disease-title  { font-size: 1.25rem; font-weight: 700; color: #1A472A; }
-.disease-badge  {
-    display: inline-block;
-    padding: 3px 10px;
-    border-radius: 20px;
-    font-size: 0.78rem;
-    font-weight: 600;
+.disease-card:hover { box-shadow: var(--shadow-md); }
+.disease-title {
+  font-size: 1.25rem;
+  font-weight: 800;
+  color: var(--green-800);
+  letter-spacing: -0.3px;
+  margin-bottom: 10px;
 }
-.badge-disease  { background: #fde8e8; color: #D64045; }
-.badge-healthy  { background: #e8f5e9; color: #2E7D32; }
+.disease-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding: 4px 12px;
+  border-radius: 20px;
+  font-size: 0.78rem;
+  font-weight: 700;
+  letter-spacing: .2px;
+}
+.badge-disease  { background: var(--red-100);   color: var(--red-500); }
+.badge-healthy  { background: var(--green-100); color: var(--green-600); }
 
-/* ── treatment card ──────────────────────────────────────────── */
-.treatment-card {
-    background: #fffbf0;
-    border: 1px solid #f5d87e;
-    border-left: 4px solid #E8A020;
-    border-radius: 12px;
-    padding: 16px 20px;
-    margin-top: 8px;
-}
-
-/* ── metric pill ─────────────────────────────────────────────── */
+/* ── metric pills ──────────────────────────────────────────────── */
 .metric-pill {
-    background: #E8EDE4;
-    border-radius: 8px;
-    padding: 6px 12px;
-    font-size: 0.78rem;
-    color: #1A472A;
-    font-weight: 600;
-    display: inline-block;
-    margin: 3px 3px;
+  background: var(--green-100);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  padding: 5px 12px;
+  font-size: 0.76rem;
+  color: var(--green-800);
+  font-weight: 600;
+  display: inline-block;
+  margin: 4px 3px;
 }
 
-/* ── offline badge ───────────────────────────────────────────── */
-.offline-badge {
-    background: #e8f5e9;
-    color: #2E7D32;
-    border-radius: 20px;
-    padding: 4px 12px;
-    font-size: 0.75rem;
-    font-weight: 700;
-    border: 1px solid #a5d6a7;
+/* ── confidence bar ────────────────────────────────────────────── */
+.conf-track {
+  background: var(--green-100);
+  border-radius: 99px;
+  height: 8px;
+  margin: 8px 0 16px;
+  overflow: hidden;
+}
+.conf-fill {
+  height: 100%;
+  border-radius: 99px;
+  transition: width .6s cubic-bezier(.4,0,.2,1);
 }
 
-/* ── warning ─────────────────────────────────────────────────── */
+/* ── treatment card ────────────────────────────────────────────── */
+.treatment-card {
+  background: #fffbf0;
+  border: 1px solid #f0d075;
+  border-left: 4px solid var(--amber-500);
+  border-radius: var(--radius-md);
+  padding: 18px 22px;
+  margin-top: 10px;
+  font-size: 0.88rem;
+  line-height: 1.65;
+  color: var(--text-2);
+}
+.treatment-card strong { color: var(--text-1); }
+
+/* ── how-it-works step cards ───────────────────────────────────── */
+.step-card {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-md);
+  padding: 22px 18px;
+  text-align: center;
+  box-shadow: var(--shadow-sm);
+  height: 100%;
+  transition: transform .2s ease, box-shadow .2s ease;
+}
+.step-card:hover {
+  transform: translateY(-4px);
+  box-shadow: var(--shadow-md);
+}
+.step-icon { font-size: 2.2rem; margin-bottom: 12px; }
+.step-number {
+  display: inline-block;
+  background: var(--green-800);
+  color: white;
+  border-radius: 50%;
+  width: 24px; height: 24px;
+  font-size: 0.72rem;
+  font-weight: 800;
+  line-height: 24px;
+  margin-bottom: 8px;
+}
+.step-title {
+  font-size: 0.92rem;
+  font-weight: 700;
+  color: var(--green-800);
+  margin-bottom: 6px;
+}
+.step-desc {
+  font-size: 0.78rem;
+  color: var(--text-3);
+  line-height: 1.5;
+}
+
+/* ── section label ─────────────────────────────────────────────── */
+.section-label {
+  font-size: 0.7rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 1.2px;
+  color: var(--text-3);
+  margin-bottom: 12px;
+}
+
+/* ── status/stub banners ───────────────────────────────────────── */
 .stub-warn {
-    background: #fff8e1;
-    border: 1px solid #ffe082;
-    border-radius: 10px;
-    padding: 10px 16px;
-    font-size: 0.83rem;
-    color: #795548;
+  background: var(--amber-100);
+  border: 1px solid #f0d075;
+  border-left: 4px solid var(--amber-500);
+  border-radius: var(--radius-md);
+  padding: 14px 20px;
+  font-size: 0.85rem;
+  color: #5a4000;
+  line-height: 1.6;
 }
+.tf-unavail-banner {
+  background: linear-gradient(135deg, #0d2b16 0%, #1A472A 100%);
+  border-radius: var(--radius-lg);
+  padding: 30px 34px;
+  color: white;
+  margin-bottom: 24px;
+  box-shadow: var(--shadow-lg);
+  position: relative; overflow: hidden;
+}
+.tf-unavail-banner::after {
+  content:'';
+  position:absolute; top:-50px; right:-50px;
+  width:180px; height:180px;
+  background: radial-gradient(circle, rgba(255,255,255,.06) 0%, transparent 70%);
+  border-radius:50%;
+}
+.tf-unavail-banner h3 {
+  margin: 0 0 8px;
+  font-size: 1.2rem;
+  font-weight: 800;
+}
+.tf-unavail-banner p {
+  margin: 0;
+  opacity: 0.82;
+  font-size: 0.88rem;
+  line-height: 1.65;
+}
+.tf-chip {
+  display: inline-block;
+  background: rgba(255,255,255,.15);
+  border: 1px solid rgba(255,255,255,.3);
+  border-radius: 20px;
+  padding: 3px 11px;
+  font-size: 0.73rem;
+  font-weight: 600;
+  margin: 12px 4px 0 0;
+}
+.tf-local-box {
+  background: rgba(255,255,255,.08);
+  border: 1px solid rgba(255,255,255,.18);
+  border-radius: var(--radius-sm);
+  padding: 12px 16px;
+  margin-top: 16px;
+  font-size: 0.83rem;
+  font-family: 'SF Mono', 'Fira Code', monospace;
+  opacity: 0.9;
+}
+
+/* ── offline badge ─────────────────────────────────────────────── */
+.offline-badge {
+  background: var(--green-100);
+  color: var(--green-700);
+  border-radius: 20px;
+  padding: 5px 14px;
+  font-size: 0.75rem;
+  font-weight: 700;
+  border: 1px solid var(--green-300);
+  display: inline-block;
+}
+
+/* ── stat chip (sidebar) ───────────────────────────────────────── */
+.stat-chip {
+  background: var(--green-50);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  padding: 8px 12px;
+  margin-bottom: 8px;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+.stat-chip .sc-icon { font-size: 1.1rem; }
+.stat-chip .sc-label { font-size: 0.72rem; color: var(--text-3); font-weight: 500; }
+.stat-chip .sc-value { font-size: 0.88rem; color: var(--green-800); font-weight: 700; }
 </style>
 """, unsafe_allow_html=True)
 
@@ -446,42 +715,60 @@ html, body, [class*="css"] { font-family: 'Inter', sans-serif; }
 
 def render_sidebar():
     with st.sidebar:
-        st.markdown("## 🌿 CropGuard")
-        st.caption("AI-powered crop disease detection")
-        st.divider()
-
-        st.markdown("### About")
         st.markdown("""
-**Model:** EfficientNetV2-S  
-**Dataset:** PlantVillage (54k images)  
-**Classes:** 38 disease categories  
-**Target accuracy:** ≥ 90%  
-**Explainability:** Grad-CAM (last conv layer)  
-**Mobile:** Flutter + TFLite (float16)
-        """)
+<div style="padding:4px 0 12px">
+  <div style="font-size:1.4rem;font-weight:900;color:#1A472A;letter-spacing:-0.5px;">🌿 CropGuard</div>
+  <div style="font-size:0.78rem;color:#6B7280;margin-top:2px;">AI-powered crop disease detection</div>
+</div>
+""", unsafe_allow_html=True)
         st.divider()
 
-        st.markdown("### Stack")
-        st.code("Python 3.10\nTensorFlow 2.13\nFlutter 3.x\ntflite_flutter\nStreamlit 1.35", language="text")
-        st.divider()
+        tf_status = "✅ Available" if TF_AVAILABLE else "⚠️ Unavailable (Py 3.14)"
+        tf_color  = "#2E7D32" if TF_AVAILABLE else "#E8A020"
+        st.markdown(f"""
+<div class="stat-chip"><span class="sc-icon">🧠</span>
+  <div><div class="sc-label">Model</div><div class="sc-value">EfficientNetV2-S</div></div></div>
+<div class="stat-chip"><span class="sc-icon">🌾</span>
+  <div><div class="sc-label">Dataset</div><div class="sc-value">PlantVillage · 54k imgs</div></div></div>
+<div class="stat-chip"><span class="sc-icon">🏷️</span>
+  <div><div class="sc-label">Classes</div><div class="sc-value">38 disease categories</div></div></div>
+<div class="stat-chip"><span class="sc-icon">🎯</span>
+  <div><div class="sc-label">Target accuracy</div><div class="sc-value">&ge; 90 %</div></div></div>
+<div class="stat-chip"><span class="sc-icon">🔥</span>
+  <div><div class="sc-label">Explainability</div><div class="sc-value">Grad-CAM</div></div></div>
+<div class="stat-chip"><span class="sc-icon">📱</span>
+  <div><div class="sc-label">Mobile</div><div class="sc-value">Flutter + TFLite fp16</div></div></div>
+<div class="stat-chip"><span class="sc-icon">⚡</span>
+  <div><div class="sc-label">TensorFlow</div>
+  <div class="sc-value" style="color:{tf_color}">{tf_status}</div></div></div>
+""", unsafe_allow_html=True)
 
-        st.markdown('<span class="offline-badge">✈️ Works fully offline (mobile app)</span>',
+        st.divider()
+        st.markdown('<span class="offline-badge">✈️ Works fully offline (mobile)</span>',
                     unsafe_allow_html=True)
-        st.caption("This web demo requires TensorFlow on the server.")
+        st.caption("Web demo · AI inference needs TF ≥ 2.13 on server.")
 
 # ─────────────────────────── tab 1: detect ────────────────────────────────── #
 
 def render_detect_tab(model):
-    # ── TF unavailability banner ───────────────────────────────────────── #
+    # ── TF unavailability ─────────────────────────────────────────────── #
     if not TF_AVAILABLE:
         st.markdown("""
-<div class="stub-warn">
-⚠️ <strong>TensorFlow not available on this runtime (Python 3.14).</strong><br/>
-AI inference requires TensorFlow which currently has no Python 3.14 wheels.<br/>
-The <strong>Encyclopedia</strong> and <strong>Architecture</strong> tabs work fully.<br/>
-<br/>
-<strong>To run inference locally:</strong> install Python 3.12, then
-<code>pip install tensorflow-cpu streamlit</code> and run <code>streamlit run app.py</code>.
+<div class="tf-unavail-banner">
+  <h3>🤖 AI Inference Temporarily Unavailable</h3>
+  <p>
+    Streamlit Cloud currently runs <strong>Python 3.14</strong>, which has no
+    TensorFlow wheels yet. The disease detection engine requires TensorFlow ≥ 2.13.
+    All other tabs below are fully functional.
+  </p>
+  <span class="tf-chip">📚 Encyclopedia ✓</span>
+  <span class="tf-chip">🏗️ Architecture ✓</span>
+  <span class="tf-chip">⚡ Benchmark ✓ (simulated)</span>
+  <div class="tf-local-box">
+    💻 &nbsp;Run locally with Python 3.12:<br/>
+    &nbsp;&nbsp;pip install tensorflow-cpu streamlit opencv-python-headless plotly<br/>
+    &nbsp;&nbsp;streamlit run streamlit_app/app.py
+  </div>
 </div>
 """, unsafe_allow_html=True)
         _render_how_it_works()
@@ -556,11 +843,11 @@ The <strong>Encyclopedia</strong> and <strong>Architecture</strong> tabs work fu
 </div>
 """, unsafe_allow_html=True)
 
-        # confidence progress
+        # confidence progress bar
         conf_color = "#2E7D32" if conf > 0.85 else "#E8A020" if conf > 0.65 else "#D64045"
         st.markdown(f"""
-<div style="background:#E8EDE4;border-radius:8px;height:10px;margin:4px 0 12px">
-  <div style="background:{conf_color};border-radius:8px;height:10px;width:{conf*100:.1f}%"></div>
+<div class="conf-track">
+  <div class="conf-fill" style="background:{conf_color};width:{conf*100:.1f}%"></div>
 </div>""", unsafe_allow_html=True)
 
         # treatment
@@ -601,19 +888,26 @@ The <strong>Encyclopedia</strong> and <strong>Architecture</strong> tabs work fu
     st.plotly_chart(fig, use_container_width=True)
 
 def _render_how_it_works():
-    st.markdown("---")
-    st.markdown("### How it works")
+    st.markdown("<div style='margin-top:32px'></div>", unsafe_allow_html=True)
+    st.markdown("<div class='section-label'>How it works</div>", unsafe_allow_html=True)
+    st.markdown("### 🔬 Detection Pipeline")
     c1, c2, c3, c4 = st.columns(4)
     steps = [
-        ("📸", "1. Capture", "Take or upload a photo of any plant leaf."),
-        ("⚙️", "2. Preprocess", "Image resized to 224×224 & normalised for EfficientNetV2."),
-        ("🧠", "3. Inference", "Model predicts among 38 disease classes with confidence %."),
-        ("🔥", "4. Grad-CAM", "Gradient heatmap highlights the diseased region on the leaf."),
+        ("📸", "1", "Capture",    "Take or upload a photo of any plant leaf — field-fresh or from camera roll."),
+        ("⚙️", "2", "Preprocess", "Image resized to 224 × 224 px and normalised for EfficientNetV2-S."),
+        ("🧠", "3", "Inference",  "Deep model predicts among 38 disease classes, returning confidence scores."),
+        ("🔥", "4", "Grad-CAM",   "Gradient heatmap highlights the exact leaf region driving the prediction."),
     ]
-    for col, (icon, title, desc) in zip([c1, c2, c3, c4], steps):
+    for col, (icon, num, title, desc) in zip([c1, c2, c3, c4], steps):
         with col:
-            st.markdown(f"**{icon} {title}**")
-            st.caption(desc)
+            st.markdown(f"""
+<div class="step-card">
+  <div class="step-icon">{icon}</div>
+  <div class="step-number">{num}</div>
+  <div class="step-title">{title}</div>
+  <div class="step-desc">{desc}</div>
+</div>
+""", unsafe_allow_html=True)
 
 # ─────────────────────────── tab 2: benchmark ─────────────────────────────── #
 
@@ -852,10 +1146,20 @@ def main():
     render_sidebar()
 
     # ── header ────────────────────────────────────────────────────────── #
-    st.markdown("""
+    tf_badge = "✅&nbsp;TensorFlow Active" if TF_AVAILABLE else "⚠️&nbsp;TF Unavailable — Python 3.14"
+    tf_badge_style = "background:rgba(76,175,80,.25);" if TF_AVAILABLE else "background:rgba(232,160,32,.25);"
+    st.markdown(f"""
 <div class="cg-header">
   <h1>🌿 CropGuard</h1>
-  <p>AI-powered crop disease detection · EfficientNetV2-S · GradCAM explainability · 38 disease classes</p>
+  <p>AI-powered crop disease detection &nbsp;·&nbsp; EfficientNetV2-S &nbsp;·&nbsp;
+     Grad-CAM explainability &nbsp;·&nbsp; 38 disease classes</p>
+  <div class="cg-tags">
+    <span class="cg-tag">🧠 EfficientNetV2-S</span>
+    <span class="cg-tag">🔥 Grad-CAM</span>
+    <span class="cg-tag">🌿 38 Classes</span>
+    <span class="cg-tag">📱 Flutter Mobile</span>
+    <span class="cg-tag" style="{tf_badge_style}">{tf_badge}</span>
+  </div>
 </div>
 """, unsafe_allow_html=True)
 
