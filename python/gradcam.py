@@ -132,10 +132,10 @@ class GradCAM:
         try:
             return keras.Model(
                 inputs=self.model.inputs,
-                outputs=[target_layer.output, self.model.output],
+                outputs=[target_layer.output, self.model.outputs[0]],
                 name="gradcam_model",
             )
-        except ValueError:
+        except (ValueError, AttributeError):
             self.is_nested = True
             for i, layer in enumerate(self.model.layers):
                 if isinstance(layer, keras.Model):
@@ -154,7 +154,7 @@ class GradCAM:
 
             return keras.Model(
                 inputs=self.sub_model.inputs,
-                outputs=[target_layer.output, self.sub_model.output],
+                outputs=[target_layer.output, self.sub_model.outputs[0]],
                 name="gradcam_sub_model",
             )
 

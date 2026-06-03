@@ -294,9 +294,9 @@ def run_gradcam(_model_ref, img_array: np.ndarray, class_idx: int) -> np.ndarray
     try:
         grad_model = keras.Model(
             inputs=_model_ref.inputs,
-            outputs=[target_layer.output, _model_ref.output],
+            outputs=[target_layer.output, _model_ref.outputs[0]],
         )
-    except ValueError:
+    except (ValueError, AttributeError):
         is_nested = True
         for i, layer in enumerate(_model_ref.layers):
             if isinstance(layer, keras.Model):
@@ -313,7 +313,7 @@ def run_gradcam(_model_ref, img_array: np.ndarray, class_idx: int) -> np.ndarray
 
         grad_model = keras.Model(
             inputs=sub_model.inputs,
-            outputs=[target_layer.output, sub_model.output],
+            outputs=[target_layer.output, sub_model.outputs[0]],
         )
 
     def forward_preprocess(inputs):
