@@ -50,14 +50,24 @@ st.set_page_config(
 )
 
 # ── lazy TensorFlow import (speeds up cold start on Streamlit Cloud) ───────── #
+# TensorFlow is optional: it has no Python 3.14 wheels as of 2025.
+# The app degrades gracefully — Encyclopedia & Architecture tabs still work.
+
+TF_AVAILABLE = False
+tf = None
+keras = None
 
 @st.cache_resource(show_spinner=False)
 def load_tf():
-    import tensorflow as tf
-    from tensorflow import keras
-    return tf, keras
+    """Try to import TensorFlow; return (tf, keras, True) on success or (None, None, False)."""
+    try:
+        import tensorflow as _tf
+        from tensorflow import keras as _keras
+        return _tf, _keras, True
+    except Exception:
+        return None, None, False
 
-tf, keras = load_tf()
+tf, keras, TF_AVAILABLE = load_tf()
 
 # ─────────────────────────── constants ────────────────────────────────────── #
 
@@ -196,7 +206,11 @@ def load_model():
     Load the trained Keras model. Falls back to a demo EfficientNetV2-S
     stub (random weights) if the trained model file isn't present — so the
     Streamlit UI is fully navigable even without a trained checkpoint.
+    Returns None if TensorFlow is not available.
     """
+    if not TF_AVAILABLE:
+        return None
+
     if MODEL_DIR.exists():
         try:
             model = keras.models.load_model(str(MODEL_DIR))
@@ -264,6 +278,9 @@ def run_gradcam(_model_ref, img_array: np.ndarray, class_idx: int) -> np.ndarray
     img_array : (1, 224, 224, 3) preprocessed float32
     Returns   : (224, 224) float32 heatmap in [0, 1]
     """
+    if not TF_AVAILABLE:
+        return np.zeros(IMG_SIZE, dtype=np.float32)
+
     target_name = _find_last_conv(_model_ref)
     if target_name is None:
         return np.zeros(IMG_SIZE, dtype=np.float32)
@@ -300,11 +317,18 @@ def overlay_heatmap(original_rgb: np.ndarray, heatmap: np.ndarray, alpha: float 
 
 # ─────────────────────────── inference ────────────────────────────────────── #
 
+def _efficientnet_preprocess(rgb_arr: np.ndarray) -> np.ndarray:
+    """EfficientNetV2 preprocess_input: scales [0,255] to [-1, 1]."""
+    if TF_AVAILABLE:
+        return tf.keras.applications.efficientnet_v2.preprocess_input(rgb_arr)
+    # Fallback: manual normalisation identical to the TF implementation
+    return (rgb_arr / 127.5) - 1.0
+
 def preprocess(pil_img: Image.Image) -> tuple[np.ndarray, np.ndarray]:
     """Returns (preprocessed_batch, resized_rgb_uint8)."""
     rgb     = pil_img.convert("RGB").resize(IMG_SIZE, Image.LANCZOS)
     rgb_arr = np.array(rgb, dtype=np.float32)
-    prep    = tf.keras.applications.efficientnet_v2.preprocess_input(rgb_arr)
+    prep    = _efficientnet_preprocess(rgb_arr)
     return np.expand_dims(prep, 0), np.array(rgb)
 
 def run_inference(model, pil_img: Image.Image) -> dict:
@@ -448,6 +472,21 @@ def render_sidebar():
 # ─────────────────────────── tab 1: detect ────────────────────────────────── #
 
 def render_detect_tab(model):
+    # ── TF unavailability banner ───────────────────────────────────────── #
+    if not TF_AVAILABLE:
+        st.markdown("""
+<div class="stub-warn">
+⚠️ <strong>TensorFlow not available on this runtime (Python 3.14).</strong><br/>
+AI inference requires TensorFlow which currently has no Python 3.14 wheels.<br/>
+The <strong>Encyclopedia</strong> and <strong>Architecture</strong> tabs work fully.<br/>
+<br/>
+<strong>To run inference locally:</strong> install Python 3.12, then
+<code>pip install tensorflow-cpu streamlit</code> and run <code>streamlit run app.py</code>.
+</div>
+""", unsafe_allow_html=True)
+        _render_how_it_works()
+        return
+
     col_up, col_sample = st.columns([3, 1])
     with col_up:
         uploaded = st.file_uploader(
@@ -580,6 +619,13 @@ def _render_how_it_works():
 
 def render_benchmark_tab():
     st.markdown("### ⚡ Float32 vs Float16 TFLite Benchmark")
+    if not TF_AVAILABLE:
+        st.warning(
+            "⚠️ TensorFlow is not available on this runtime (Python 3.14). "
+            "The simulated benchmark requires TensorFlow for Keras model inference. "
+            "Run locally with Python 3.12 to use this tab."
+        )
+        return
     st.markdown("""
 This tab simulates the benchmark from `convert_to_tflite.py` using **random noise images**
 (since actual TFLite models are not bundled in the web demo — they live in `tflite_models/`).
@@ -788,13 +834,16 @@ Flutter App    Streamlit
     """)
 
     st.markdown("#### Model summary (approximate)")
-    try:
-        model = load_model()
-        buf   = io.StringIO()
-        model.summary(print_fn=lambda x: buf.write(x + "\n"), expand_nested=False)
-        st.code(buf.getvalue(), language="text")
-    except Exception as e:
-        st.warning(f"Could not render model summary: {e}")
+    if not TF_AVAILABLE:
+        st.info("ℹ️ TensorFlow is not available on this runtime — model summary cannot be displayed.")
+    else:
+        try:
+            model = load_model()
+            buf   = io.StringIO()
+            model.summary(print_fn=lambda x: buf.write(x + "\n"), expand_nested=False)
+            st.code(buf.getvalue(), language="text")
+        except Exception as e:
+            st.warning(f"Could not render model summary: {e}")
 
 # ─────────────────────────── main ─────────────────────────────────────────── #
 
@@ -811,12 +860,13 @@ def main():
 """, unsafe_allow_html=True)
 
     # ── load model ────────────────────────────────────────────────────── #
-    with st.spinner("Loading AI model…"):
-        model = load_model()
+    if TF_AVAILABLE:
+        with st.spinner("Loading AI model…"):
+            model = load_model()
 
-    source = st.session_state.get("model_source", "stub")
-    if source == "stub":
-        st.markdown("""
+        source = st.session_state.get("model_source", "stub")
+        if source == "stub":
+            st.markdown("""
 <div class="stub-warn">
 ⚠️ <strong>Demo mode:</strong> The trained model was not found at
 <code>python/saved_model/crop_disease_model/</code>.
@@ -824,8 +874,18 @@ Running with ImageNet-pretrained weights only — predictions are not meaningful
 Run <code>python train.py</code> first, then relaunch.
 </div>
 """, unsafe_allow_html=True)
+        else:
+            st.success("✅ Trained model loaded.", icon="🧠")
     else:
-        st.success("✅ Trained model loaded.", icon="🧠")
+        model = None
+        st.markdown("""
+<div class="stub-warn">
+⚠️ <strong>TensorFlow unavailable</strong> — this deployment runs on Python 3.14
+which has no TensorFlow wheels yet. AI inference is disabled.
+The <strong>📚 Encyclopedia</strong> and <strong>🏗️ Architecture</strong> tabs are
+fully functional. To run with AI inference, use Python 3.12 locally.
+</div>
+""", unsafe_allow_html=True)
 
     st.markdown("")
 
